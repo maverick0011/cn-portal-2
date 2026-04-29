@@ -1,0 +1,130 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - role: string (required, 'admin' or 'student')
+//   - displayName: string (optional)
+//   - createdAt: string (optional)
+//
+// Collection: meetings
+// Document ID: {meetingId}
+// Fields:
+//   - title: string (required)
+//   - description: string (optional)
+//   - startTime: string (required, ISO date string)
+//   - endTime: string (required, ISO date string)
+//   - videoLink: string (optional)
+//   - createdBy: string (required, admin UID)
+//
+// Collection: meetings/{meetingId}/attendance/{studentId}
+// Document ID: {studentId}
+// Fields:
+//   - studentId: string (required)
+//   - meetingId: string (required)
+//   - attended: bool (required)
+//   - timestamp: string (required)
+//
+// Collection: meetings/{meetingId}/ratings/{studentId}
+// Document ID: {studentId}
+// Fields:
+//   - studentId: string (required)
+//   - meetingId: string (required)
+//   - rating: number (required, 1-5)
+//   - feedback: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isEmailAdmin() {
+      return isAuthenticated() && request.auth.token.email == "mavbharath01@gmail.com";
+    }
+
+    function isAdmin() {
+      return isEmailAdmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin'
+      );
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isEmailAdmin() || isAdmin();
+      allow create: if isAuthenticated() && (isOwner(userId) || isEmailAdmin() || isAdmin());
+      allow update: if isEmailAdmin() || isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
+    }
+
+    match /published_videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /references/{refId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /assessments/{aId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /submissions/{sId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.studentId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /interview_prep/{pId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /folders/{folderId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /meetings/{meetingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /attendance/{studentId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin() || isOwner(studentId);
+      }
+
+      match /ratings/{studentId} {
+        allow read: if isAdmin() || isOwner(studentId);
+        allow write: if isAdmin() || isOwner(studentId);
+      }
+    }
+  }
+}

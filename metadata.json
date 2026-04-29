@@ -1,0 +1,14 @@
+{
+  "name": "CN Portal 2",
+  "description": "An advanced EdTech portal with granular Google Drive video access, manual user approval system, integrated calendar scheduling, and comprehensive attendance tracking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "Authentication",
+    "Database",
+    "Video Streaming",
+    "Calendar Management"
+  ]
+}
